@@ -16,6 +16,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:convert';
 
+import '../config/app_config.dart';
 import 'login_screen.dart';
 import 'currency_converter_screen.dart';
 import 'timezone_screen.dart';
@@ -770,8 +771,15 @@ class _ProfileTabState extends State<ProfileTab> {
 
   Future<void> _performUpdate(String newName, File? newImage) async {
     try {
-      var request = http.MultipartRequest('POST', Uri.parse('http://192.168.1.24:3000/update-profile'));
-      request.fields['username'] = _username;
+      final session = await DatabaseHelper.instance.getActiveSession();
+      final token = session?['token'] as String?;
+      if (token == null || token.isEmpty) {
+        _showSnackBar('Sesi login habis. Silakan login ulang.');
+        return;
+      }
+
+      var request = http.MultipartRequest('POST', AppConfig.apiUri('/update-profile'));
+      request.headers['Authorization'] = 'Bearer $token';
       request.fields['full_name'] = newName;
       
       if (newImage != null) {

@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 import '../helpers/db_helper.dart';
+import '../services/greenway_ai_client.dart';
 
 const _bg      = Color(0xFF081C0E);
 const _accent  = Color(0xFF52B788);
-const _accentDim = Color(0xFF2D6A4F);
 
 class EcoHuntScreen extends StatefulWidget {
   const EcoHuntScreen({super.key});
@@ -23,9 +22,7 @@ class _EcoHuntScreenState extends State<EcoHuntScreen> {
   int _foundCount = 0;
   final int _targetCount = 3;
   String _statusMessage = "Arahkan kamera ke sampah organik dan tekan Scan";
-
-  // API Key Groq
-  final String _apiKey = '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';
+  final GreenwayAiClient _aiClient = const GreenwayAiClient();
 
   @override
   void initState() {
@@ -62,15 +59,10 @@ class _EcoHuntScreenState extends State<EcoHuntScreen> {
       // 2. Bersihkan Base64 (Sesuai referensi AI Scan lu)
       final String base64Image = base64Encode(bytes).replaceAll(RegExp(r'\s+'), '');
 
-      // 3. Kirim ke API Groq
-      final response = await http.post(
-        Uri.parse('https://api.groq.com/openai/v1/chat/completions'),
-        headers: {
-          'Authorization': 'Bearer $_apiKey',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'model': 'llama-3.2-11b-vision-preview',
+      // 3. Kirim ke proxy AI backend
+      final response = await _aiClient.chatCompletions(
+        feature: 'eco_hunt',
+        body: {
           'messages': [
             {
               'role': 'user',
@@ -90,7 +82,7 @@ class _EcoHuntScreenState extends State<EcoHuntScreen> {
           ],
           'temperature': 0.1,
           'max_tokens': 100,
-        }),
+        },
       );
 
       if (response.statusCode == 200) {
@@ -122,7 +114,9 @@ class _EcoHuntScreenState extends State<EcoHuntScreen> {
       }
     } catch (e) {
       debugPrint("EcoHunt Error: $e");
-      setState(() => _statusMessage = "Gagal memproses. Pastikan internet aktif.");
+      setState(() => _statusMessage = e is GreenwayAiException
+          ? e.message
+          : "Tidak bisa terhubung ke server AI. Pastikan backend aktif dan HP satu Wi-Fi dengan laptop.");
     } finally {
       if (mounted) setState(() => _isAnalyzing = false);
     }

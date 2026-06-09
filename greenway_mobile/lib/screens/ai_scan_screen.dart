@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
+
+import '../services/greenway_ai_client.dart';
 
 const _bg      = Color(0xFF081C0E);
 const _surface = Color(0xFF0D2B18);
@@ -28,8 +29,7 @@ class _AIScanScreenState extends State<AIScanScreen> {
   String _result = '';
   String _category = '';   // organik / anorganik / bukan sampah
   String _statusLabel = '';
-
-  final String _apiKey = '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';
+  final GreenwayAiClient _aiClient = const GreenwayAiClient();
 
   @override
   void initState() {
@@ -63,14 +63,9 @@ class _AIScanScreenState extends State<AIScanScreen> {
       final bytes = await image.readAsBytes();
       final base64Image = base64Encode(bytes).replaceAll(RegExp(r'\s+'), '');
 
-      final response = await http.post(
-        Uri.parse('https://api.groq.com/openai/v1/chat/completions'),
-        headers: {
-          'Authorization': 'Bearer $_apiKey',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'model': 'meta-llama/llama-4-scout-17b-16e-instruct',
+      final response = await _aiClient.chatCompletions(
+        feature: 'ai_scan',
+        body: {
           'messages': [
             {
               'role': 'user',
@@ -78,13 +73,13 @@ class _AIScanScreenState extends State<AIScanScreen> {
                 {
                   'type': 'text',
                   'text': '''Kamu adalah asisten lingkungan. Analisis gambar ini dan jawab dalam format JSON berikut (tanpa markdown, tanpa kode blok):
-{
-  "nama_objek": "...",
-  "kategori": "organik" | "anorganik" | "B3" | "bukan sampah",
-  "deskripsi": "penjelasan singkat 1-2 kalimat tentang objek",
-  "cara_penanganan": "langkah konkret cara membuang/mengolah sampah ini",
-  "dampak_lingkungan": "dampak jika tidak ditangani dengan benar"
-}'''
+                  {
+                    "nama_objek": "...",
+                    "kategori": "organik" | "anorganik" | "B3" | "bukan sampah",
+                    "deskripsi": "penjelasan singkat 1-2 kalimat tentang objek",
+                    "cara_penanganan": "langkah konkret cara membuang/mengolah sampah ini",
+                    "dampak_lingkungan": "dampak jika tidak ditangani dengan benar"
+                  }'''
                 },
                 {
                   'type': 'image_url',
@@ -94,7 +89,7 @@ class _AIScanScreenState extends State<AIScanScreen> {
             }
           ],
           'max_tokens': 512,
-        }),
+        },
       );
 
       if (response.statusCode == 200) {
@@ -131,11 +126,13 @@ class _AIScanScreenState extends State<AIScanScreen> {
           _result = 'Gagal menghubungi AI.';
           _statusLabel = 'Error';
         });
-        debugPrint('Groq error: ${errorInfo['error']['message']}');
+        debugPrint('AI error: ${errorInfo['error']?['message'] ?? response.statusCode}');
       }
     } catch (e) {
       setState(() {
-        _result = 'Periksa koneksi internet kamu.';
+        _result = e is GreenwayAiException
+            ? e.message
+            : 'Tidak bisa terhubung ke server AI. Pastikan backend aktif dan HP satu Wi-Fi dengan laptop.';
         _statusLabel = 'Koneksi Error';
       });
     } finally {

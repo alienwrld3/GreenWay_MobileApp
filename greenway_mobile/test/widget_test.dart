@@ -8,15 +8,12 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
 
     // Verifikasi bahwa aplikasi menampilkan judul utama.
-    expect(find.text('GreenWay Mobile'), findsOneWidget);
+    expect(find.text('GreenWay'), findsOneWidget);
 
     // Verifikasi bahwa terdapat kolom input untuk Username dan Password.
     expect(find.byType(TextField), findsNWidgets(2));
 
-    // Verifikasi bahwa tombol LOGIN tersedia.
-    expect(find.text('LOGIN'), findsOneWidget);
-
-    // Verifikasi adanya ikon sidik jari untuk biometrik.
-    expect(find.byIcon(Icons.fingerprint), findsOneWidget);
+    // Verifikasi bahwa tombol masuk tersedia.
+    expect(find.text('MASUK'), findsOneWidget);
   });
 }

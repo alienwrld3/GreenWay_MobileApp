@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
+
+import '../services/greenway_ai_client.dart';
 
 const _bg      = Color(0xFF081C0E);
 const _surface = Color(0xFF0D2B18);
@@ -35,8 +36,7 @@ class _GreenBotScreenState extends State<GreenBotScreen> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
-
-  final String _apiKey = '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';
+  final GreenwayAiClient _aiClient = const GreenwayAiClient();
 
   // Ambil dari singleton → history tetap ada walau screen di-pop
   List<Map<String, String>> get _messages => GreenBotHistory.instance.messages;
@@ -72,14 +72,9 @@ class _GreenBotScreenState extends State<GreenBotScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
 
     try {
-      final response = await http.post(
-        Uri.parse('https://api.groq.com/openai/v1/chat/completions'),
-        headers: {
-          'Authorization': 'Bearer $_apiKey',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'model': 'llama-3.3-70b-versatile',
+      final response = await _aiClient.chatCompletions(
+        feature: 'chatbot',
+        body: {
           'messages': [
             {
               'role': 'system',
@@ -89,7 +84,7 @@ class _GreenBotScreenState extends State<GreenBotScreen> {
           ],
           'temperature': 0.7,
           'max_tokens': 512,
-        }),
+        },
       );
 
       if (response.statusCode == 200) {
@@ -106,7 +101,12 @@ class _GreenBotScreenState extends State<GreenBotScreen> {
       }
     } catch (e) {
       setState(() {
-        _messages.add({'role': 'assistant', 'message': 'Koneksi bermasalah. Periksa internet kamu.'});
+        _messages.add({
+          'role': 'assistant',
+          'message': e is GreenwayAiException
+              ? e.message
+              : 'Tidak bisa terhubung ke server AI. Pastikan backend aktif dan HP satu Wi-Fi dengan laptop.'
+        });
       });
     } finally {
       setState(() => _isLoading = false);

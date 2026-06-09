@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:local_auth/local_auth.dart';
 import 'home_screen.dart';
 import 'register_screen.dart';
+import '../config/app_config.dart';
 import '../helpers/db_helper.dart';
 import '../helpers/notification_helper.dart';
 
@@ -101,7 +102,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     setState(() => _isLoading = true);
     try {
       final response = await http.post(
-        Uri.parse('http://192.168.1.24:3000/login'),
+        AppConfig.apiUri('/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'username': username, 'password': password}),
       ).timeout(const Duration(seconds: 5));

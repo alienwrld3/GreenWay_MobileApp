@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:local_auth/local_auth.dart';
 import 'home_screen.dart';
 import 'register_screen.dart';
+import '../config/app_config.dart';
 import '../helpers/db_helper.dart';
 import '../helpers/notification_helper.dart';
 
@@ -26,8 +27,12 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _checkFingerprint() async {
-    final enabled = await DatabaseHelper.instance.isFingerprintEnabled();
-    setState(() => _fingerprintEnabled = enabled);
+    try {
+      final enabled = await DatabaseHelper.instance.isFingerprintEnabled();
+      if (mounted) setState(() => _fingerprintEnabled = enabled);
+    } catch (_) {
+      if (mounted) setState(() => _fingerprintEnabled = false);
+    }
   }
 
   Future<void> _loginWithBiometric() async {
@@ -55,7 +60,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
     try {
       final response = await http.post(
-        Uri.parse('http://192.168.1.24:3000/login'), // Sesuaikan IP Backend[cite: 10]
+        AppConfig.apiUri('/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'username': _usernameController.text, 'password': _passwordController.text}),
       ).timeout(const Duration(seconds: 5));

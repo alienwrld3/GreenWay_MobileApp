@@ -1,0 +1,31 @@
+{
+  "name": "tugas-akhir",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "npm run test:all",
+    "test:whitebox": "node ../security-tests/whitebox.js",
+    "test:blackbox": "node ../security-tests/blackbox.js",
+    "test:security": "node ../security-tests/security.js",
+    "test:load": "node ../security-tests/load.js",
+    "test:stress": "node ../security-tests/stress.js",
+    "test:integration": "node ../security-tests/integration.js",
+    "test:all": "npm run test:whitebox && npm run test:blackbox && npm run test:security && npm run test:load && npm run test:stress && npm run test:integration"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "body-parser": "^2.2.2",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.1.1",
+    "mysql2": "^3.22.3"
+  }
+}

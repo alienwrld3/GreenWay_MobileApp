@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'login_screen.dart';
+import '../config/app_config.dart';
 import '../helpers/notification_helper.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -77,7 +78,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
     try {
       final fullName = _fullNameController.text.trim();
       final response = await http.post(
-        Uri.parse('http://192.168.1.24:3000/register'),
+        AppConfig.apiUri('/register'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'full_name': fullName,
