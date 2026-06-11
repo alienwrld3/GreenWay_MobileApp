@@ -73,10 +73,14 @@ class DatabaseHelper {
 
   Future<void> updateLocalProfile(String fullName, String? imageUrl) async {
     final db = await instance.database;
-    await db.update('users', {
-      'full_name': fullName,
-      'profile_image': imageUrl,
-    });
+    final Map<String, dynamic> updateData = {'full_name': fullName};
+    
+    // Only update image if it's provided (not null)
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      updateData['profile_image'] = imageUrl;
+    }
+    
+    await db.update('users', updateData);
   }
 
   // Fungsi untuk menambah skor game

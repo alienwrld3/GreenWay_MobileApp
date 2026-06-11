@@ -30,6 +30,7 @@ app.use(cors({
         return callback(new Error('Origin tidak diizinkan oleh CORS'));
     }
 }));
+2
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Akses publik folder foto
 
 const db = mysql.createConnection({
@@ -88,11 +89,31 @@ const upload = multer({
     storage,
     limits: { fileSize: 2 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
-        const allowedMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
-        const allowedExts = new Set(['.jpg', '.jpeg', '.png', '.webp']);
+        // Beberapa device mengirim mimetype yang berbeda walau ekstensi file sama.
+        // Agar upload foto tidak gagal, kita toleransi: lolos jika salah satu sesuai.
+        const allowedMimeTypes = new Set([
+            'image/jpeg',
+            'image/jpg',
+            'image/png',
+            'image/webp',
+            'image/heic',
+            'image/heif',
+        ]);
+        const allowedExts = new Set([
+            '.jpg',
+            '.jpeg',
+            '.png',
+            '.webp',
+            '.heic',
+            '.heif',
+        ]);
+
         const ext = path.extname(file.originalname).toLowerCase();
-        if (!allowedMimeTypes.has(file.mimetype) || !allowedExts.has(ext)) {
-            return cb(new Error('Format file tidak didukung'));
+        const mimeOk = allowedMimeTypes.has(file.mimetype);
+        const extOk = allowedExts.has(ext);
+
+        if (!mimeOk && !extOk) {
+            return cb(new Error(`Format file tidak didukung (mimetype=${file.mimetype}, ext=${ext})`));
         }
         return cb(null, true);
     }
@@ -156,11 +177,13 @@ app.post('/update-profile', rejectUnauthenticatedMultipart, authenticateToken, u
 
     db.query(query, params, (err) => {
         if (err) return sendServerError(res, err, 'update-profile');
-        res.json({
+        const response = {
             message: "Profil berhasil diperbarui!", 
             full_name: full_name.trim(),
-            image_url: newImageUrl 
-        });
+        };
+        // Only include image_url if it was actually updated
+        if (newImageUrl) response.image_url = newImageUrl;
+        res.json(response);
     });
 });
 
@@ -203,7 +226,7 @@ app.use((err, req, res, next) => {
     if (err instanceof multer.MulterError) {
         return res.status(400).json({ message: err.message });
     }
-    if (err && err.message === 'Format file tidak didukung') {
+    if (err && typeof err.message === 'string' && err.message.startsWith('Format file tidak didukung')) {
         return res.status(415).json({ message: err.message });
     }
     return next(err);

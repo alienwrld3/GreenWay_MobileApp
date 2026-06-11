@@ -699,9 +699,11 @@ class _ProfileTabState extends State<ProfileTab> {
   Future<void> _showEditProfileDialog() async {
     final nameCtrl = TextEditingController(text: _name);
     File? tempImage;
+    bool isUpdating = false;
 
     await showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: _card,
@@ -713,7 +715,7 @@ class _ProfileTabState extends State<ProfileTab> {
               children: [
                 // Preview Foto di dalam Dialog
                 GestureDetector(
-                  onTap: () async {
+                  onTap: isUpdating ? null : () async {
                     final picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
                     if (picked != null) {
                       setDialogState(() => tempImage = File(picked.path));
@@ -743,25 +745,41 @@ class _ProfileTabState extends State<ProfileTab> {
                 const SizedBox(height: 20),
                 TextField(
                   controller: nameCtrl,
+                  enabled: !isUpdating,
                   style: const TextStyle(color: _textPrim),
                   decoration: InputDecoration(
                     labelText: 'Nama Lengkap',
                     labelStyle: const TextStyle(color: _accent),
                     enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: _accent.withOpacity(0.3))),
+                    disabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: _accent.withOpacity(0.1))),
                   ),
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal', style: TextStyle(color: Colors.white54))),
+            TextButton(
+              onPressed: isUpdating ? null : () => Navigator.pop(ctx), 
+              child: Text('Batal', style: TextStyle(color: isUpdating ? Colors.white12 : Colors.white54))
+            ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: _accent),
-              onPressed: () {
-                Navigator.pop(ctx);
-                _performUpdate(nameCtrl.text, tempImage);
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _accent,
+                disabledBackgroundColor: _accent.withOpacity(0.5),
+              ),
+              onPressed: isUpdating ? null : () async {
+                final newName = nameCtrl.text.trim();
+                if (newName.isEmpty) {
+                  _showSnackBar('Nama tidak boleh kosong!');
+                  return;
+                }
+                setDialogState(() => isUpdating = true);
+                await _performUpdate(newName, tempImage);
+                if (mounted) Navigator.pop(ctx);
               },
-              child: const Text('Simpan'),
+              child: isUpdating 
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)))
+                : const Text('Simpan'),
             ),
           ],
         ),
@@ -774,7 +792,7 @@ class _ProfileTabState extends State<ProfileTab> {
       final session = await DatabaseHelper.instance.getActiveSession();
       final token = session?['token'] as String?;
       if (token == null || token.isEmpty) {
-        _showSnackBar('Sesi login habis. Silakan login ulang.');
+        _showSnackBar('❌ Sesi login habis. Silakan login ulang.');
         return;
       }
 
@@ -786,21 +804,37 @@ class _ProfileTabState extends State<ProfileTab> {
         request.files.add(await http.MultipartFile.fromPath('image', newImage.path));
       }
 
-      var response = await request.send();
+      var response = await request.send().timeout(const Duration(seconds: 30), onTimeout: () {
+        throw Exception('Koneksi server timeout. Coba lagi nanti.');
+      });
+      
       if (response.statusCode == 200) {
         var resBody = await response.stream.bytesToString();
         var data = jsonDecode(resBody);
         
-        // Update local database
-        await DatabaseHelper.instance.updateLocalProfile(newName, data['image_url']);
+        // Only update image if it's provided in response (i.e., new image was uploaded)
+        String? updatedImageUrl = data['image_url'] as String?;
+        if (updatedImageUrl != null) {
+          await DatabaseHelper.instance.updateLocalProfile(newName, updatedImageUrl);
+        } else {
+          // Update only the name, keep existing image
+          await DatabaseHelper.instance.updateLocalProfile(newName, _imageUrl);
+        }
         
         _loadProfile(); // Refresh UI
-        _showSnackBar('Profil berhasil diperbarui! ✨');
+        _showSnackBar('✨ Profil berhasil diperbarui!');
+      } else if (response.statusCode == 401 || response.statusCode == 403) {
+        _showSnackBar('❌ Anda tidak berhak mengupdate profil. Login ulang.');
+      } else if (response.statusCode == 400) {
+        _showSnackBar('❌ Data tidak valid. Periksa nama dan foto.');
+      } else if (response.statusCode == 415) {
+        _showSnackBar('❌ Format foto tidak didukung. Gunakan JPG/PNG.');
       } else {
-        _showSnackBar('Gagal memperbarui profil ke server.');
+        _showSnackBar('❌ Error dari server (${response.statusCode})');
       }
     } catch (e) {
-      _showSnackBar('Terjadi kesalahan koneksi.');
+      debugPrint('Update profile error: $e');
+      _showSnackBar('❌ Kesalahan koneksi: ${e.toString()}');
     }
   }
 
